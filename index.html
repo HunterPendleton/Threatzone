@@ -128,7 +128,6 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
     <div id="date-display"></div>
     <div id="streak-row">
       <span>🔥 Streak: <b id="streak-count">0</b></span>
-      <span>✅ Solved: <b id="solved-count">0</b></span>
     </div>
   </div>
 
@@ -502,7 +501,13 @@ function loadWinsFromStorage(){
     const raw=localStorage.getItem(LS_WINS);
     if(!raw)return;
     const saved=JSON.parse(raw);
-    for(const k of Object.keys(saved)) winsStore[k]=saved[k];
+    for(const k of Object.keys(saved)){
+      const w=saved[k];
+      // JSON stringifies numeric keys — restore board keys as numbers
+      const board={};
+      for(const bk of Object.keys(w.board)) board[+bk]=w.board[bk];
+      winsStore[k]={...w, board};
+    }
   }catch{}
 }
 
@@ -876,16 +881,15 @@ function recordDailySolve(time, hints){
   const ystStr=`${yesterday.getFullYear()}-${yesterday.getMonth()+1}-${yesterday.getDate()}`;
   const streak = s.lastSolvedDate===ystStr ? (s.streak||0)+1 : 1;
   s.solvedDate=today; s.lastSolvedDate=today;
-  s.streak=streak; s.solvedCount=(s.solvedCount||0)+1;
+  s.streak=streak;
   s.todayTime=time; s.todayHints=hints;
   saveDailyState(s);
-  return {streak, solvedCount:s.solvedCount};
+  return {streak};
 }
 
 function updateStreakUI(){
   const s=loadDailyState();
   document.getElementById('streak-count').textContent = s.streak||0;
-  document.getElementById('solved-count').textContent = s.solvedCount||0;
 }
 
 function formatDate(d){
@@ -917,7 +921,7 @@ function onPuzzleLoaded(idx){
 const _sharedOnSolved = onSolved;
 function onSolved(){
   const finalTime=formatTime(timerSeconds);
-  const {streak, solvedCount} = recordDailySolve(timerSeconds, hintsThisSession);
+  const {streak} = recordDailySolve(timerSeconds, hintsThisSession);
   saveWin(currentPuzzleIndex, myBoard, timerSeconds, hintsThisSession);
   setFB('ok', `Solved in ${finalTime} \u{1F389}`);
   launchConfetti();
