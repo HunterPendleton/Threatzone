@@ -1213,6 +1213,7 @@ function clearPersistedTimer(){
 function init(){
   loadWinsFromStorage();
   updateStreakUI();
+  currentPuzzleIndex = getDayIndex();
   switchTier('easy');
   maybeShowTutorial();
 }
