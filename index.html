@@ -63,6 +63,14 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 .confetti-piece{position:fixed;width:10px;height:10px;top:-10px;opacity:1;animation:confetti-fall linear forwards;pointer-events:none;z-index:9999;border-radius:2px;}
 @keyframes confetti-fall{0%{transform:translateY(0) rotate(0deg) scale(1);opacity:1;}80%{opacity:1;}100%{transform:translateY(100vh) rotate(720deg) scale(0.6);opacity:0;}}
 
+/* ── Tutorial piece flash ── */
+@keyframes tut-flash {
+  0%,100% { opacity: 1; transform: scale(1); }
+  40%      { opacity: 0.25; transform: scale(0.85); }
+  70%      { opacity: 1; transform: scale(1.15); }
+}
+.tut-sq.flashing img { animation: tut-flash 0.7s ease infinite; }
+
 /* ── Side drawer ── */
 #drawer-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:100;}
 #drawer-overlay.open{display:block;}
@@ -105,6 +113,14 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 .tut-progress{display:flex;gap:6px;justify-content:center;}
 .tut-dot{width:8px;height:8px;border-radius:50%;background:#ddd;}
 .tut-dot.active{background:#c0392b;}
+
+/* ── Tutorial piece flash ── */
+@keyframes tut-flash {
+  0%,100% { opacity: 1; transform: scale(1); }
+  40%      { opacity: 0.25; transform: scale(0.85); }
+  70%      { opacity: 1; transform: scale(1.15); }
+}
+.tut-sq.flashing img { animation: tut-flash 0.7s ease infinite; }
 
 
 /* ── Daily extras ── */
@@ -598,11 +614,11 @@ function getTutAttacks(type){
   return getAttacks(type,r,c,occ,1);
 }
 
-let tutState={screen:'welcome',pieceIdx:0,animFrame:null};
+let tutState={screen:'welcome',pieceIdx:0,animFrame:null,demoStep:0};
 const PIECE_ORDER=['Q','R','B','N','P'];
 
 function openTutorial(){
-  tutState={screen:'welcome',pieceIdx:0,animFrame:null};
+  tutState={screen:'welcome',pieceIdx:0,animFrame:null,demoStep:0};
   renderTutorial();
   document.getElementById('tutorial-overlay').classList.add('open');
   stopTimer();
@@ -611,10 +627,8 @@ function closeTutorial(startClock=false){
   if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
   document.getElementById('tutorial-overlay').classList.remove('open');
   if(startClock){
-    // "Let's Play" — always start the timer
     if(!isPaused && !document.getElementById('btn-hint').disabled) startTimer();
   } else {
-    // X button — only resume if timer was already running before tutorial opened
     if(!isPaused && timerSeconds>0 && !document.getElementById('btn-hint').disabled) startTimer();
   }
 }
@@ -650,19 +664,7 @@ function renderTutorial(){
     animateTutPiece(type, attacks);
 
   } else if(tutState.screen==='rules'){
-    content.innerHTML=`
-      <div class="tut-step-title">How Threat Zone Works</div>
-      <div class="tut-rule">Each puzzle has exactly one solution.</div>
-      <div class="tut-rule">Place your pieces so every enemy is threatened.</div>
-      <div class="tut-rule">None of your pieces can be threatened by the enemy.</div>
-      <div class="tut-rule">Each of your pieces must threaten at least one unique enemy.</div>
-      <p style="font-size:12px;color:#999">Watch Puzzle #1 being solved:</p>
-      <div id="tut-board-wrap" style="display:flex;justify-content:center"></div>
-      <div id="tut-caption" style="font-size:12px;color:#666;text-align:center;min-height:32px;padding:4px 8px;"></div>
-      <div class="tut-nav">
-        <button class="tut-btn tut-btn-primary" onclick="tutStart()">Let\'s Play! ♟️</button>
-      </div>`;
-    animateDemo();
+    renderDemoStep();
   }
 }
 
@@ -677,6 +679,7 @@ function buildTutPieceBoard(type, highlighted){
     const r=Math.floor(i/5),c=i%5;
     sq.className='tut-sq '+((r+c)%2===0?'light':'dark');
     if(i===12){
+      if(highlighted.size>0) sq.classList.add('flashing');
       const img=document.createElement('img');
       img.src=PIECE_IMGS.enemy[type]||'';
       img.style.cssText=type==='P'?'width:60%;height:60%;object-fit:contain;'
@@ -712,115 +715,225 @@ function animateTutPiece(type, allAttacks){
   tick();
 }
 
-// ── Demo animation (Puzzle #1) ────────────────────────────────────────────────
-function animateDemo(){
-  // Puzzle #1 data (hardcoded for reliability)
-  const enemies=[{t:'B',k:0},{t:'P',k:16},{t:'P',k:14},{t:'R',k:11},{t:'N',k:5}];
-  const solution=[{t:'N',k:7},{t:'P',k:17},{t:'R',k:15}];
-  // Player attack squares (pawnDir=-1, with full occ)
-  const occ=new Set([...enemies.map(e=>e.k),...solution.map(m=>m.k)]);
-  const playerAtks=solution.map(m=>{
+// ── Demo: Puzzle #3 — step-by-step with Next button ──────────────────────────
+// Puzzle #3 data (hardcoded)
+const DEMO_ENEMIES=[{t:'N',k:6},{t:'Q',k:23},{t:'B',k:5},{t:'R',k:2},{t:'P',k:9}];
+const DEMO_SOLUTION=[{t:'P',k:10},{t:'Q',k:14},{t:'N',k:16}];
+const DEMO_OCC=new Set([...DEMO_ENEMIES.map(e=>e.k),...DEMO_SOLUTION.map(m=>m.k)]);
+const DEMO_EKEYS=new Set(DEMO_ENEMIES.map(e=>e.k));
+
+const DEMO_ENEMY_ATKS=DEMO_ENEMIES.map(e=>{
+  const[r,c]=fk(e.k);
+  return{...e, atks:getAttacks(e.t,r,c,DEMO_OCC,1)};
+});
+const DEMO_PLAYER_ATKS=DEMO_SOLUTION.map(m=>{
+  const[r,c]=fk(m.k);
+  return{...m, atks:getAttacks(m.t,r,c,DEMO_OCC,-1)};
+});
+
+// Each demo step: {caption, board opts, animEnemyIdx, canProceed}
+// animEnemyIdx: if set, auto-animates that enemy's attacks then stops — user hits Next
+const DEMO_STEPS=[
+  // Step 0: show the board
+  {
+    caption:'Here\'s Puzzle #3. All 5 enemy piece types are on the board.',
+    placedCount:0, showBoard:true,
+    btnLabel:'Next →'
+  },
+  // Steps 1-5: one enemy per step, animate their attacks, user clicks Next
+  {
+    caption:'The Rook controls its entire row and column.',
+    placedCount:0, animEnemyIdx:3,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'The Bishop controls the diagonals from its square.',
+    placedCount:0, animEnemyIdx:2,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'The Knight attacks in an L-shape — it can jump over pieces.',
+    placedCount:0, animEnemyIdx:0,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'The Queen covers rows, columns, and diagonals — very dangerous!',
+    placedCount:0, animEnemyIdx:1,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'The enemy Pawn attacks the two diagonal squares directly below it.',
+    placedCount:0, animEnemyIdx:4,
+    btnLabel:'Next →'
+  },
+  // Step 6: place first player piece
+  {
+    caption:'Our Pawn is placed safely. It uniquely threatens the enemy Knight.',
+    placedCount:1, highlightPlayerIdx:0,
+    btnLabel:'Next →'
+  },
+  // Step 7: place second player piece
+  {
+    caption:'Our Queen slides in safely — she threatens the Rook and the Pawn.',
+    placedCount:2, highlightPlayerIdx:1,
+    btnLabel:'Next →'
+  },
+  // Step 8: place third player piece
+  {
+    caption:'Our Knight lands here — it threatens the Bishop and the enemy Queen.',
+    placedCount:3, highlightPlayerIdx:2,
+    btnLabel:'Next →'
+  },
+  // Step 9: show final solved state
+  {
+    caption:'All 5 enemies threatened, all our pieces safe. ✅',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Next →'
+  },
+  // Steps 10-13: rules one at a time
+  {
+    caption:'', rule:'Each puzzle has exactly one solution.',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'', rule:'Place your pieces so every enemy is threatened.',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'', rule:'None of your pieces can be threatened by the enemy.',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'', rule:'Each of your pieces must threaten at least one unique enemy.',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Next →'
+  },
+  {
+    caption:'', rule:'Remember: all pieces attack in every direction — except Pawns. Pawns only attack the diagonal squares directly in front of them. Enemy pawns are facing down on the board, and player pawns are facing up.',
+    ruleStyle:'background:#fff0e0;border-color:#e0a060;',
+    placedCount:3, showAllCovered:true,
+    btnLabel:'Got it — Let\'s Play! ♟️', isLast:true
+  },
+];
+
+function buildDemoBoard(step){
+  const wrap=document.getElementById('tut-board-wrap');
+  if(!wrap) return;
+
+  const placed = DEMO_SOLUTION.slice(0, step.placedCount||0);
+  const grid=document.createElement('div');
+  grid.className='tut-board';
+
+  const coveredEnemies=new Set();
+  for(const m of placed){
     const[r,c]=fk(m.k);
-    return{...m, atks:getAttacks(m.t,r,c,occ,-1)};
-  });
-  // Enemy attack squares (pawnDir=+1)
-  const enemyAtks=enemies.map(e=>{
-    const[r,c]=fk(e.k);
-    return{...e, atks:getAttacks(e.t,r,c,occ,1)};
-  });
-  const eKeys=new Set(enemies.map(e=>e.k));
+    const atk=getAttacks(m.t,r,c,DEMO_OCC,-1);
+    for(const k of atk) if(DEMO_EKEYS.has(k)) coveredEnemies.add(k);
+  }
 
-  function buildDemoBoard(opts={}){
-    // opts: placedCount, highlightEnemyIdx, highlightPlayerIdx, showAllCovered
-    const wrap=document.getElementById('tut-board-wrap');
-    if(!wrap) return;
-    const placed=solution.slice(0,opts.placedCount||0);
-    const grid=document.createElement('div');
-    grid.className='tut-board';
+  const activeEnemyKey = step.animEnemyIdx!=null ? DEMO_ENEMY_ATKS[step.animEnemyIdx].k : null;
+  const activePlayerKey = step.highlightPlayerIdx!=null ? DEMO_PLAYER_ATKS[step.highlightPlayerIdx].k : null;
+  // For animating enemy attacks we use the current animated set stored in tutState
+  const enemyHighlights = tutState.enemyHighlights || new Set();
 
-    // Compute which enemies are covered by placed pieces
-    const coveredEnemies=new Set();
-    for(const m of placed){
-      const[r,c]=fk(m.k);
-      const atk=getAttacks(m.t,r,c,occ,-1);
-      for(const k of atk) if(eKeys.has(k)) coveredEnemies.add(k);
+  for(let i=0;i<25;i++){
+    const sq=document.createElement('div');
+    const r=Math.floor(i/5),c=i%5;
+    sq.className='tut-sq '+((r+c)%2===0?'light':'dark');
+    const enemy=DEMO_ENEMIES.find(e=>e.k===i);
+    const player=placed.find(m=>m.k===i);
+
+    if(step.animEnemyIdx!=null){
+      if(!enemy&&!player&&enemyHighlights.has(i)) sq.classList.add('tut-enemy');
+      if(i===activeEnemyKey) sq.classList.add('flashing');
+    }
+    if(step.highlightPlayerIdx!=null){
+      const pa=DEMO_PLAYER_ATKS[step.highlightPlayerIdx];
+      if(!enemy&&pa.atks.has(i)) sq.classList.add('tut-enemy');
+      if(enemy&&pa.atks.has(i)) sq.classList.add('tut-highlight');
+      if(i===activePlayerKey) sq.classList.add('flashing');
     }
 
-    for(let i=0;i<25;i++){
-      const sq=document.createElement('div');
-      const r=Math.floor(i/5),c=i%5;
-      sq.className='tut-sq '+((r+c)%2===0?'light':'dark');
-      const enemy=enemies.find(e=>e.k===i);
-      const player=placed.find(m=>m.k===i);
-
-      // Highlight squares attacked by a specific enemy
-      if(opts.highlightEnemyIdx!=null){
-        const ea=enemyAtks[opts.highlightEnemyIdx];
-        if(!enemy&&!player&&ea.atks.has(i)) sq.classList.add('tut-enemy');
-      }
-      // Highlight squares attacked by a specific player piece
-      if(opts.highlightPlayerIdx!=null){
-        const pa=playerAtks[opts.highlightPlayerIdx];
-        if(!enemy&&pa.atks.has(i)) sq.classList.add('tut-safe');
-        if(enemy&&pa.atks.has(i)) sq.classList.add('tut-highlight');
-      }
-
-      if(enemy){
-        if(opts.showAllCovered&&coveredEnemies.has(i)) sq.classList.add('tut-highlight');
-        const img=document.createElement('img');
-        img.src=PIECE_IMGS.enemy[enemy.t]||'';
-        img.style.cssText=enemy.t==='P'?'width:60%;height:60%;object-fit:contain;'
-          :(enemy.t==='N'||enemy.t==='R'||enemy.t==='B'?'width:70%;height:70%;object-fit:contain;'
-          :'width:85%;height:85%;object-fit:contain;');
-        sq.appendChild(img);
-      } else if(player){
-        sq.classList.add('tut-safe');
-        const img=document.createElement('img');
-        img.src=PIECE_IMGS.player[player.t]||'';
-        img.style.cssText=player.t==='P'?'width:60%;height:60%;object-fit:contain;'
-          :(player.t==='N'||player.t==='R'||player.t==='B'?'width:70%;height:70%;object-fit:contain;'
-          :'width:85%;height:85%;object-fit:contain;');
-        sq.appendChild(img);
-      }
-      grid.appendChild(sq);
+    if(enemy){
+      if(step.showAllCovered&&coveredEnemies.has(i)) sq.classList.add('tut-highlight');
+      const img=document.createElement('img');
+      img.src=PIECE_IMGS.enemy[enemy.t]||'';
+      img.style.cssText=enemy.t==='P'?'width:60%;height:60%;object-fit:contain;'
+        :(enemy.t==='N'||enemy.t==='R'||enemy.t==='B'?'width:70%;height:70%;object-fit:contain;'
+        :'width:85%;height:85%;object-fit:contain;');
+      sq.appendChild(img);
+    } else if(player){
+      sq.classList.add('tut-safe');
+      const img=document.createElement('img');
+      img.src=PIECE_IMGS.player[player.t]||'';
+      img.style.cssText=player.t==='P'?'width:60%;height:60%;object-fit:contain;'
+        :(player.t==='N'||player.t==='R'||player.t==='B'?'width:70%;height:70%;object-fit:contain;'
+        :'width:85%;height:85%;object-fit:contain;');
+      sq.appendChild(img);
     }
-    wrap.innerHTML='';
-    wrap.appendChild(grid);
+    grid.appendChild(sq);
   }
+  wrap.innerHTML='';
+  wrap.appendChild(grid);
+}
 
-  function setCaption(txt){
-    const el=document.getElementById('tut-caption');
-    if(el) el.textContent=txt;
+function renderDemoStep(){
+  const content=document.getElementById('tutorial-content');
+  const step=DEMO_STEPS[tutState.demoStep];
+
+  const ruleHTML = step.rule
+    ? `<div class="tut-rule" style="${step.ruleStyle||''}">${step.rule}</div>`
+    : '';
+  const captionHTML = step.caption
+    ? `<div id="tut-caption" style="font-size:13px;color:#555;text-align:center;min-height:32px;padding:4px 8px;font-weight:700;">${step.caption}</div>`
+    : `<div id="tut-caption" style="min-height:8px;"></div>`;
+  const progressHTML = `<div class="tut-step-title" style="font-size:13px;">Puzzle #3 Walkthrough</div>`;
+
+  content.innerHTML=`
+    ${progressHTML}
+    <div id="tut-board-wrap" style="display:flex;justify-content:center"></div>
+    ${captionHTML}
+    ${ruleHTML}
+    <div class="tut-nav">
+      ${tutState.demoStep>0?'<button class="tut-btn tut-btn-secondary" onclick="demoPrev()">← Back</button>':''}
+      <button class="tut-btn tut-btn-primary" id="tut-next-btn" onclick="${step.isLast?'tutStart()':'demoNext()'}">${step.btnLabel}</button>
+    </div>`;
+
+  // Reset animated highlights
+  tutState.enemyHighlights = new Set();
+  buildDemoBoard(step);
+
+  // If this step has an enemy to animate, start the animation but stop when done
+  if(step.animEnemyIdx!=null){
+    const ea = DEMO_ENEMY_ATKS[step.animEnemyIdx];
+    const attackArr=[...ea.atks];
+    let idx=0;
+    function tick(){
+      if(!document.getElementById('tut-board-wrap')) return;
+      if(idx<attackArr.length){
+        tutState.enemyHighlights.add(attackArr[idx]);
+        buildDemoBoard(step);
+        idx++;
+        tutState.animFrame=setTimeout(tick,120);
+      }
+      // Stop when done — user clicks Next
+    }
+    tick();
   }
+}
 
-  // Animation sequence
-  const steps=[
-    // Show empty enemy board
-    [()=>{buildDemoBoard({placedCount:0});               setCaption('5 enemy pieces are placed on the board.');}, 1800],
-    // Highlight each enemy's threat zone one at a time
-    [()=>{buildDemoBoard({highlightEnemyIdx:0});         setCaption('The Bishop (top-left) controls these diagonal squares.');}, 1600],
-    [()=>{buildDemoBoard({highlightEnemyIdx:1});         setCaption('The enemy Pawn attacks diagonally downward.');}, 1600],
-    [()=>{buildDemoBoard({highlightEnemyIdx:2});         setCaption('Another enemy Pawn — same rule, different square.');}, 1600],
-    [()=>{buildDemoBoard({highlightEnemyIdx:3});         setCaption('The Rook controls its entire row and column.');}, 1600],
-    [()=>{buildDemoBoard({highlightEnemyIdx:4});         setCaption('The Knight attacks in an L-shape from its square.');}, 1600],
-    // Place pieces one by one with their coverage shown
-    [()=>{buildDemoBoard({placedCount:1,highlightPlayerIdx:0}); setCaption('Our Knight lands here — safely outside all threats.');}, 1800],
-    [()=>{buildDemoBoard({placedCount:1,highlightPlayerIdx:0}); setCaption('It threatens the Bishop, and both enemy Pawns!');}, 1800],
-    [()=>{buildDemoBoard({placedCount:2,highlightPlayerIdx:1}); setCaption('Our Pawn is placed safely and threatens the enemy Rook.');}, 1800],
-    [()=>{buildDemoBoard({placedCount:3,highlightPlayerIdx:2}); setCaption('Our Rook slides in — threatens the Pawn and the Knight.');}, 1800],
-    // Show fully solved state
-    [()=>{buildDemoBoard({placedCount:3,showAllCovered:true}); setCaption('All 5 enemies threatened, all our pieces safe. Solved! ✅');}, 2400],
-  ];
-
-  let step=0;
-  function tick(){
-    if(!document.getElementById('tut-board-wrap')) return;
-    steps[step%steps.length][0]();
-    const delay=steps[step%steps.length][1];
-    step++;
-    tutState.animFrame=setTimeout(tick, delay);
-  }
-  tick();
+function demoNext(){
+  if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
+  tutState.demoStep=Math.min(tutState.demoStep+1, DEMO_STEPS.length-1);
+  renderDemoStep();
+}
+function demoPrev(){
+  if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
+  tutState.demoStep=Math.max(tutState.demoStep-1, 0);
+  renderDemoStep();
 }
 
 // ── Navigation ────────────────────────────────────────────────────────────────
@@ -828,12 +941,13 @@ function tutGoChess(known){
   if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
   tutState.screen=known?'rules':'pieces';
   tutState.pieceIdx=0;
+  tutState.demoStep=0;
   renderTutorial();
 }
 function tutPieceNext(){
   if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
   if(tutState.pieceIdx<4){tutState.pieceIdx++;renderTutorial();}
-  else{tutState.screen='rules';renderTutorial();}
+  else{tutState.screen='rules';tutState.demoStep=0;renderTutorial();}
 }
 function tutPiecePrev(){
   if(tutState.animFrame){clearTimeout(tutState.animFrame);tutState.animFrame=null;}
