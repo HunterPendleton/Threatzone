@@ -136,6 +136,7 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 .tier-btn.active.medium-btn{background:#e65100;color:#fff;}
 .tier-btn.active.hard-btn{background:#c62828;color:#fff;}
 .tier-btn.solved-tier::after{content:' \2713';font-size:11px;opacity:0.9;}
+#btn-archive{background:#ffe0b2;border-color:#e65100;color:#bf360c;}
 
 </style>
 </head>
@@ -181,10 +182,21 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
     <button id="btn-pause">&#9208; Pause</button>
     <button id="btn-hint">Hint &#10022;</button>
     <button id="btn-share">Share</button>
+    <button id="btn-archive">Archive &#9776;</button>
     <button id="btn-tutorial">How to Play</button>
   </div>
 
   <div id="feedback" class="fb-idle">Select a piece above, then click a square.</div>
+</div>
+
+<!-- Archive drawer -->
+<div id="drawer-overlay"></div>
+<div id="drawer">
+  <div id="drawer-header">
+    <h2>&#128218; Archive</h2>
+    <button id="drawer-close">&#10005;</button>
+  </div>
+  <div id="drawer-list"></div>
 </div>
 
 <div id="tutorial-overlay">
@@ -413,6 +425,7 @@ document.getElementById('btn-reset').addEventListener('click',()=>{
   {const _bh=document.getElementById('btn-hint');if(_bh)_bh.disabled=false;}
   const rem=remCounts();
   selectedType=puzzle.myTypes.find(t=>(rem[t]||0)>0)||puzzle.myTypes[0];
+  if(typeof clearPersistedTimer==='function')clearPersistedTimer();
   renderBoard();renderSel();setFB('idle','Select a piece above, then click a square.');
 });
 
@@ -464,7 +477,7 @@ function launchConfetti(){
 // ── Timer ─────────────────────────────────────────────────────────────────────
 let timerSeconds=0,timerInterval=null,timerRunning=false;
 function formatTime(s){const m=Math.floor(s/60),sec=s%60;return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;}
-function startTimer(){if(timerRunning)return;timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;const td=document.getElementById('timer-display');if(td)td.textContent=formatTime(timerSeconds);},1000);}
+function startTimer(){if(timerRunning)return;timerRunning=true;timerInterval=setInterval(()=>{timerSeconds++;const td=document.getElementById('timer-display');if(td)td.textContent=formatTime(timerSeconds);if(typeof persistRunningTimer==='function')persistRunningTimer();},1000);}
 function stopTimer(){timerRunning=false;clearInterval(timerInterval);timerInterval=null;}
 function resetTimer(){stopTimer();timerSeconds=0;const tdr=document.getElementById('timer-display');if(tdr)tdr.textContent='00:00';}
 
@@ -880,7 +893,7 @@ function renderDemoStep(){
   const captionHTML = step.caption
     ? `<div id="tut-caption" style="font-size:13px;color:#555;text-align:center;min-height:32px;padding:4px 8px;font-weight:700;">${step.caption}</div>`
     : `<div id="tut-caption" style="min-height:8px;"></div>`;
-  const progressHTML = `<div class="tut-step-title" style="font-size:13px;">Puzzle #3: Medium Walkthrough</div>`;
+  const progressHTML = `<div class="tut-step-title" style="font-size:13px;">Puzzle #3 Walkthrough</div>`;
 
   content.innerHTML=`
     ${progressHTML}
@@ -1014,7 +1027,7 @@ function switchTier(tier){
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.remove('active'));
   const tb=document.querySelector('.'+tier+'-btn');
   if(tb)tb.classList.add('active');
-  loadTierPuzzle(tier,getDayIndex());
+  loadTierPuzzle(tier,currentPuzzleIndex);
 }
 
 function loadTierPuzzle(tier,idx){
@@ -1031,9 +1044,14 @@ function loadTierPuzzle(tier,idx){
   // Update date display
   const dd=g('date-display');if(dd)dd.textContent=formatDate(puzzleDate(idx));
 
-  // Check if already solved today
+  // Always hide banner first; only show it for today's puzzle
+  const banner=g('already-solved-banner');
+  if(banner)banner.style.display='none';
+
+  // Check if already solved
   const winKey=tier+'-'+idx;
-  if(winsStore[winKey]&&isTierSolvedToday(tier)){
+  const isToday=(idx===getDayIndex());
+  if(winsStore[winKey]&&isToday&&isTierSolvedToday(tier)){
     const w=winsStore[winKey];
     myBoard={...w.board};timerSeconds=w.time;
     const td=g('timer-display');if(td)td.textContent=formatTime(w.time);
@@ -1052,6 +1070,7 @@ function loadTierPuzzle(tier,idx){
   }else{
     renderBoard();renderSel();
     setFB('idle','Select a piece above, then click a square.');
+    restoreTimer();
     startTimer();
   }
   updateTierButtons();
@@ -1076,7 +1095,8 @@ function updateTierButtons(){
   ['easy','medium','hard'].forEach(t=>{
     const btn=document.querySelector('.'+t+'-btn');
     if(!btn)return;
-    if(isTierSolvedToday(t))btn.classList.add('solved-tier');
+    // Use winsStore directly — works for any day, not just today
+    if(winsStore[t+'-'+currentPuzzleIndex])btn.classList.add('solved-tier');
     else btn.classList.remove('solved-tier');
   });
 }
@@ -1087,6 +1107,7 @@ function onSolved(){
   const winKey=currentTier+'-'+currentPuzzleIndex;
   winsStore[winKey]={board:{...myBoard},time:timerSeconds,hints:hintsThisSession};
   persistWins();
+  clearPersistedTimer();
   const {streak}=recordTierSolve(currentTier,timerSeconds,hintsThisSession);
   setFB('ok','Solved in '+finalTime+' \uD83C\uDF89');
   launchConfetti();
@@ -1112,6 +1133,80 @@ if(_bsEl){
     if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>setFB('ok','Result copied!')).catch(()=>prompt('Copy:',text));
     else prompt('Copy:',text);
   });
+}
+
+// ── Archive drawer ───────────────────────────────────────────────────────────
+function renderDrawer(){
+  const list=g('drawer-list');
+  if(!list)return;
+  list.innerHTML='';
+  const dayIdx=getDayIndex();
+  for(let i=dayIdx;i>=0;i--){
+    const date=puzzleDate(i);
+    const dateStr=date.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const row=document.createElement('div');
+    row.className='drawer-item'+(i===currentPuzzleIndex?' active-puzzle':'');
+
+    // Build tier pip indicators
+    const tiers=['easy','medium','hard'];
+    const tierLabels={easy:'E',medium:'M',hard:'H'};
+    const tierColors={easy:'#2e7d32',medium:'#e65100',hard:'#c62828'};
+    let pips='';
+    tiers.forEach(t=>{
+      const solved=isTierSolvedToday_idx(t,i);
+      pips+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${solved?tierColors[t]:'#eee'};color:${solved?'#fff':'#aaa'};font-size:10px;font-weight:800;font-family:'Nunito',sans-serif;">${tierLabels[t]}</span>`;
+    });
+
+    row.innerHTML=`<span class="di-num" style="min-width:110px">Day ${i+1} &middot; ${dateStr}</span><span style="display:flex;gap:4px;align-items:center">${pips}</span>`;
+    row.style.cursor='pointer';
+    row.addEventListener('click',()=>{
+      closeDrawer();
+      loadTierPuzzle(currentTier,i);
+    });
+    list.appendChild(row);
+  }
+}
+
+function isTierSolvedToday_idx(tier,idx){
+  // Check winsStore for any win on this day index for this tier
+  return !!winsStore[tier+'-'+idx];
+}
+
+function openDrawer(){
+  renderDrawer();
+  const d=g('drawer');const o=g('drawer-overlay');
+  if(d)d.classList.add('open');if(o)o.classList.add('open');
+}
+function closeDrawer(){
+  const d=g('drawer');const o=g('drawer-overlay');
+  if(d)d.classList.remove('open');if(o)o.classList.remove('open');
+}
+const _baEl=g('btn-archive');
+if(_baEl)_baEl.addEventListener('click',openDrawer);
+const _dcEl=g('drawer-close');
+if(_dcEl)_dcEl.addEventListener('click',closeDrawer);
+const _doEl=g('drawer-overlay');
+if(_doEl)_doEl.addEventListener('click',closeDrawer);
+
+// ── Timer persistence ────────────────────────────────────────────────────────
+function timerKey(){return 'tz_timer_'+currentTier+'_'+currentPuzzleIndex;}
+
+function persistRunningTimer(){
+  try{ localStorage.setItem(timerKey(), timerSeconds); }catch{}
+}
+
+function restoreTimer(){
+  try{
+    const saved=localStorage.getItem(timerKey());
+    if(saved!==null){
+      timerSeconds=parseInt(saved,10)||0;
+      const td=g('timer-display');if(td)td.textContent=formatTime(timerSeconds);
+    }
+  }catch{}
+}
+
+function clearPersistedTimer(){
+  try{ localStorage.removeItem(timerKey()); }catch{}
 }
 
 // Init
