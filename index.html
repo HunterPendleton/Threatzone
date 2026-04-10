@@ -1077,6 +1077,8 @@ function loadTierPuzzle(tier,idx){
 }
 
 function showSolvedBanner(tier){
+  // Only show banner for today's puzzle
+  if(currentPuzzleIndex!==getDayIndex())return;
   const banner=g('already-solved-banner');
   if(!banner)return;
   const s=loadDS();
