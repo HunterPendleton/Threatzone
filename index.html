@@ -56,7 +56,7 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 #btn-hint[data-level="2"]{background:#b1d4f5;border-color:#1a6ab0;color:#002a60;}
 #btn-hint[data-level="3"]{background:#f5c9b1;border-color:#b05a1a;color:#602a00;}
 .hint-sq-threats{background:#ffaaaa !important;}
-#board-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex:1 1 auto;min-height:0;}
+#board-wrap{position:relative;display:flex;align-items:center;justify-content:center;flex:1 1 0;width:100%;min-height:0;}
 #board-blur-overlay{display:none;position:absolute;inset:0;background:rgba(253,246,238,0.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:8px;z-index:10;align-items:center;justify-content:center;}
 #board-blur-overlay span{font-family:'Fredoka One',cursive;font-size:28px;color:#c0392b;letter-spacing:1px;}
 #board-wrap.paused #board-blur-overlay{display:flex;}
@@ -125,7 +125,7 @@ body.dark-mode .tier-btn.active.easy-btn{background:#2e7d32!important;color:#fff
 body.dark-mode .tier-btn.active.medium-btn{background:#e65100!important;color:#fff!important;}
 body.dark-mode .tier-btn.active.hard-btn{background:#c62828!important;color:#fff!important;}
 
-:root{--sq:min(calc((100vw - 24px) / 5), calc((100dvh - 260px) / 5), 68px);}
+:root{--sq:min(calc((100vw - 24px) / 5), calc((100dvh - 230px) / 5));}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{font-family:'Nunito',sans-serif;background:#fdf6ee;display:flex;justify-content:center;align-items:flex-start;}
@@ -155,10 +155,9 @@ h1{font-family:'Fredoka One',cursive;font-size:clamp(20px,5.5vw,28px);color:#c03
 #already-solved-banner{display:none;background:#d4f7d4;border:2px solid #3ab03a;border-radius:10px;padding:4px 12px;text-align:center;font-size:clamp(10px,2.5vw,12px);color:#1a5a1a;font-weight:700;width:100%;flex-shrink:0;margin-bottom:3px;}
 #board-wrap{
   position:relative;
-  /* Board takes whatever space is left after other elements */
-  flex:1 1 auto;
+  flex:1 1 0;
   display:flex;align-items:center;justify-content:center;
-  min-height:0;
+  width:100%;min-height:0;
 }
 #board{display:grid;grid-template-columns:repeat(5,var(--sq));grid-template-rows:repeat(5,var(--sq));border:3px solid #8b2020;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15);}
 
@@ -1477,6 +1476,32 @@ function init(){
   maybeShowTutorial();
 }
 init();
+
+// Dynamic board sizing: set --sq based on actual available space
+function updateBoardSize(){
+  const wrap=document.getElementById('board-wrap');
+  if(!wrap)return;
+  const app=document.getElementById('app');
+  if(!app)return;
+  // Available height for board = app height minus all other children heights
+  let usedH=0;
+  for(const child of app.children){
+    if(child.id==='board-wrap')continue;
+    usedH+=child.offsetHeight;
+  }
+  // Also account for app padding
+  const appStyle=getComputedStyle(app);
+  const padT=parseFloat(appStyle.paddingTop)||0;
+  const padB=parseFloat(appStyle.paddingBottom)||0;
+  usedH+=padT+padB;
+  const availH=app.offsetHeight-usedH;
+  const availW=app.offsetWidth-24;
+  const sq=Math.floor(Math.min(availH/5, availW/5, 72));
+  document.documentElement.style.setProperty('--sq', sq+'px');
+}
+window.addEventListener('resize',updateBoardSize);
+// Run after first render
+setTimeout(updateBoardSize,50);
 
 </script>
 </body>
