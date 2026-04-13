@@ -1099,6 +1099,9 @@ function switchTier(tier){
   document.querySelectorAll('.tier-btn').forEach(b=>b.classList.remove('active'));
   const tb=document.querySelector('.'+tier+'-btn');
   if(tb)tb.classList.add('active');
+  // Show legend only for easy
+  const leg=g('legend');
+  if(leg)leg.style.display=(tier==='easy')?'flex':'none';
   loadTierPuzzle(tier,currentPuzzleIndex);
 }
 
@@ -1212,6 +1215,7 @@ function staggeredReveal(callback){
 
 function showDailyScoreCard(){
   showTimer();
+  const leg=g('legend');if(leg&&currentTier==='easy')leg.style.display='flex';
   const par=currentTier==='hard'?5:currentTier==='medium'?5:4;
   const stars=getStars(placements,par);
   const label=SCORE_LABELS[stars-1];
