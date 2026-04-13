@@ -1037,6 +1037,51 @@ function updateStreakUI(){
   document.getElementById('streak-count').textContent=s.streak||0;
 }
 
+
+// ── Tier-aware renderBoard: highlighting only for easy, or after solve ────────
+const _sharedRenderBoard = renderBoard;
+function renderBoard(hintKey=null){
+  const el=document.getElementById('board');
+  if(!el)return;
+  el.innerHTML='';
+  const{eT,mT}=computeThreats();
+  const bh=document.getElementById('btn-hint');
+  const solved=bh&&bh.disabled;
+  const showHL=(currentTier==='easy')||solved;
+  for(let r=0;r<5;r++)for(let c=0;c<5;c++){
+    const sq=document.createElement('div');
+    sq.className='sq '+((r+c)%2===0?'light':'dark');
+    const k=nk(r,c);
+    const enemy=puzzle.enemies.find(e=>e.k===k);
+    const myT=myBoard[k];
+    if(k===hintKey)sq.classList.add('hint-sq');
+    else if(enemy){if(showHL&&mT.has(k))sq.classList.add('threatened-enemy');}
+    else if(myT!=null){if(showHL)sq.classList.add(eT.has(k)?'threatened-mine':'safe-mine');}
+    if(enemy){
+      const sp=document.createElement('img');sp.className='piece enemy-piece';
+      sp.src=PIECE_IMGS.enemy[enemy.t]||'';
+      sp.style.cssText=enemy.t==='P'?'width:60%;height:60%;object-fit:contain;pointer-events:none;'
+        :(enemy.t==='N'||enemy.t==='R'||enemy.t==='B'?'width:70%;height:70%;object-fit:contain;pointer-events:none;'
+        :'width:85%;height:85%;object-fit:contain;pointer-events:none;');
+      sq.appendChild(sp);
+    }else if(myT!=null){
+      const sp=document.createElement('img');sp.className='piece my-piece';
+      sp.src=PIECE_IMGS.player[myT]||'';
+      sp.style.cssText=myT==='P'?'width:60%;height:60%;object-fit:contain;pointer-events:none;'
+        :(myT==='N'||myT==='R'||myT==='B'?'width:70%;height:70%;object-fit:contain;pointer-events:none;'
+        :'width:85%;height:85%;object-fit:contain;pointer-events:none;');
+      sq.appendChild(sp);
+    }
+    sq.addEventListener('click',()=>onClick(k));
+    el.appendChild(sq);
+  }
+}
+
+// ── Timer hidden until solve ──────────────────────────────────────────────────
+// Hide timer display on load, reveal on solve
+function hideTimer(){const td=g('timer-display');if(td)td.style.visibility='hidden';}
+function showTimer(){const td=g('timer-display');if(td)td.style.visibility='visible';}
+
 // ── Tier state ────────────────────────────────────────────────────────────────
 let currentTier='easy';
 let placements=0;
@@ -1068,6 +1113,7 @@ function loadTierPuzzle(tier,idx){
   const bh=g('btn-hint');if(bh){bh.disabled=false;bh.removeAttribute('data-level');}
   selectedType=puzzle.myTypes[0];
   resetTimer();
+  hideTimer();
 
   // Update date display
   const dd=g('date-display');if(dd)dd.textContent=formatDate(puzzleDate(idx));
@@ -1097,6 +1143,7 @@ function loadTierPuzzle(tier,idx){
     setFB('ok','Previously solved in '+formatTime(w.time)+' \uD83C\uDF89');
   }else{
     renderBoard();renderSel();
+    const fb3=g('feedback');if(fb3)fb3.style.display='';
     setFB('idle','Select a piece above, then click a square.');
     restoreTimer();
     startTimer();
@@ -1164,6 +1211,7 @@ function staggeredReveal(callback){
 }
 
 function showDailyScoreCard(){
+  showTimer();
   const par=currentTier==='hard'?5:currentTier==='medium'?5:4;
   const stars=getStars(placements,par);
   const label=SCORE_LABELS[stars-1];
@@ -1175,7 +1223,7 @@ function showDailyScoreCard(){
     const over=placements-par;
     g('score-detail').textContent=placements+' placement'+(placements>1?'s':'')+' — par '+par;
   }
-  setFB('ok',label+'!');
+  const fb=g('feedback');if(fb)fb.style.display='none';
 }
 
 // Override share
@@ -1193,9 +1241,8 @@ if(_bsEl){
     const starsStr=starStr(stars);
     const label=SCORE_LABELS[stars-1];
     const line1='\u265F\uFE0F'+tierStr+' #'+(currentPuzzleIndex+1)+'\u265F\uFE0F';
-    const line2=starsStr+' '+label;
-    const line3='\u265F\uFE0F'+(w.placements||0)+' placement'+((w.placements||0)!==1?'s':'')+' \u2014 par '+par+'\u265F\uFE0F';
-    const text=line1+'\n'+line2+'\n'+line3+'\nwww.threatzone.app';
+    const line2='\u265F\uFE0F '+(w.placements||0)+' Guess'+((w.placements||0)!==1?'es':'')+' \u2014 '+starsStr+'\u265F\uFE0F';
+    const text=line1+'\n'+line2+'\nwww.threatzone.app';
     if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>setFB('ok','Result copied!')).catch(()=>prompt('Copy:',text));
     else prompt('Copy:',text);
   });
