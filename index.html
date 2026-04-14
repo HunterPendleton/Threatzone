@@ -93,15 +93,15 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 /* ── Tutorial modal ── */
 #tutorial-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200;align-items:center;justify-content:center;}
 #tutorial-overlay.open{display:flex;}
-#tutorial-modal{background:#fff9f0;border:3px solid #c0392b;border-radius:18px;max-width:380px;width:90%;max-height:88vh;overflow-y:auto;padding:24px 20px;position:relative;display:flex;flex-direction:column;gap:16px;}
+#tutorial-modal{background:#fff9f0!important;color:#333!important;border:3px solid #c0392b;border-radius:18px;max-width:380px;width:90%;max-height:88vh;overflow-y:auto;padding:24px 20px;position:relative;display:flex;flex-direction:column;gap:16px;}
 #tutorial-modal h2{font-family:'Fredoka One',cursive;color:#c0392b;font-size:22px;text-align:center;}
 #tutorial-modal p{font-size:13px;color:#555;line-height:1.6;text-align:center;}
 #tutorial-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;cursor:pointer;color:#999;padding:0;}
 #tutorial-close:hover{color:#c0392b;transform:scale(1.2);box-shadow:none;}
 .tut-nav{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:4px;}
 .tut-btn{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;padding:10px 20px;border-radius:10px;border:2px solid;cursor:pointer;}
-.tut-btn-primary{background:#c0392b;border-color:#922b21;color:white;}
-.tut-btn-secondary{background:#f5f0e8;border-color:#ddd;color:#555;}
+.tut-btn-primary{background:#c0392b!important;border-color:#922b21!important;color:#fff!important;}
+.tut-btn-secondary{background:#f5f0e8!important;border-color:#ddd!important;color:#555!important;}
 .tut-board{display:grid;grid-template-columns:repeat(5,48px);grid-template-rows:repeat(5,48px);border:2px solid #8b2020;border-radius:6px;overflow:hidden;margin:0 auto;}
 .tut-sq{width:48px;height:48px;display:flex;align-items:center;justify-content:center;}
 .tut-sq.light{background:#f5deb3;}.tut-sq.dark{background:#cd853f;}
