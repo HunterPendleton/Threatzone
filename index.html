@@ -148,7 +148,7 @@ h1{font-family:'Fredoka One',cursive;font-size:clamp(20px,5.5vw,28px);color:#c03
 .tier-btn{flex:1;padding:clamp(4px,1.2vw,7px) 0;font-family:'Fredoka One',cursive;font-size:clamp(11px,3vw,14px);border:none;cursor:pointer;transition:background .18s,color .18s;border-radius:0;}
 .tier-btn.easy-btn{background:#e8f5e9;color:#1b5e20;}.tier-btn.medium-btn{background:#fff3e0;color:#e65100;}.tier-btn.hard-btn{background:#fce4ec;color:#880e4f;}
 .tier-btn.active.easy-btn{background:#2e7d32;color:#fff;}.tier-btn.active.medium-btn{background:#e65100;color:#fff;}.tier-btn.active.hard-btn{background:#c62828;color:#fff;}
-.tier-btn.solved-tier::after{content:' ¹3';font-size:10px;opacity:.9;}
+.tier-btn.solved-tier::after{content:' ✓';font-size:11px;opacity:1;color:inherit;}
 #par-row{display:flex;align-items:baseline;justify-content:center;gap:5px;font-family:'Fredoka One',cursive;flex-shrink:0;margin-bottom:3px;}
 #placement-count{font-size:clamp(18px,5vw,24px);color:#c0392b;line-height:1;}
 #par-label,#timer-display{font-size:clamp(10px,2.5vw,12px);color:#aaa;font-family:'Nunito',sans-serif;font-weight:700;}
@@ -1248,7 +1248,7 @@ function loadTierPuzzle(tier,idx){
   hideTimer();
 
   // Update date display
-  const dd=g('date-display');if(dd)dd.textContent=formatDate(puzzleDate(idx));
+  const dd=g('date-display');if(dd)dd.textContent=formatDate(puzzleDate(idx))+' · #'+(idx+1);
 
   // Always hide banner first; only show it for today's puzzle
   const banner=g('already-solved-banner');
