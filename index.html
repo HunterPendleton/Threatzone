@@ -1191,7 +1191,7 @@ function renderBoard(hintKey=null){
   const{eT,mT}=computeThreats();
   const bh=document.getElementById('btn-hint');
   const solved=bh&&bh.disabled;
-  const showHL=!expertMode&&(!solved? (currentTier==='easy') : true);
+  const showHL=!expertMode;
   for(let r=0;r<5;r++)for(let c=0;c<5;c++){
     const sq=document.createElement('div');
     sq.className='sq '+((r+c)%2===0?'light':'dark');
