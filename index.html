@@ -195,7 +195,7 @@ button:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
 #btn-share{background:#90caf9;border-color:#1565c0;color:#0a2a50;}
 #btn-archive{background:#ffe0b2;border-color:#e65100;color:#bf360c;}
 #btn-tutorial{background:#e8f5e9;border-color:#2e7d32;color:#1b5e20;}
-.spacer{flex:1 1 0;min-height:0;max-height:16px;}
+.spacer{flex:1 1 0;min-height:0;max-height:30px;}
 #feedback{font-size:clamp(11px,2.5vw,13px);font-weight:700;padding:clamp(4px,1.2vw,8px) 14px;border-radius:12px;text-align:center;transition:all .3s;line-height:1.3;flex-shrink:0;width:100%;max-width:340px;}
 .fb-ok{background:#d4f7d4;color:#1a5a1a;border:2px solid #3ab03a;}
 .fb-fail{background:#ffd4d4;color:#7a1a1a;border:2px solid #c03030;}
@@ -271,7 +271,7 @@ body.dark-mode #legend{color:#a0b0c0;}
 </script>
 <body>
 <div id="app">
-  <div id="top-row">
+  <div id="top-row" style="padding-bottom:15px">
     <button id="btn-menu">&#9776;</button>
     <h1>&#9823;&#65039; Threat Zone &#9823;&#65039;</h1>
     <div id="daily-header">
@@ -284,7 +284,7 @@ body.dark-mode #legend{color:#a0b0c0;}
     <button class="tier-btn medium-btn" onclick="switchTier('medium')">Medium &#9733;&#9733;&#9734;</button>
     <button class="tier-btn hard-btn" onclick="switchTier('hard')">Hard &#9733;&#9733;&#9733;</button>
   </div>
-  <div id="par-row">
+  <div id="par-row"  style="padding-top:5px">
     <span id="placement-count">0</span>
     <span id="par-label">placements</span>
     <span id="timer-display" style="visibility:hidden;">00:00</span>
@@ -355,7 +355,7 @@ body.dark-mode #legend{color:#a0b0c0;}
       <a href="mailto:threatzone.app@gmail.com">threatzone.app@gmail.com</a>
     </div>
         <div class="menu-row">
-      <span style="font-size:11px;color:#aaa;font-weight:600;">Build: 1.002</span>
+      <span style="font-size:11px;color:#aaa;font-weight:600;">Build: 1.003</span>
     </div>
   </div>
 </div>
