@@ -66,7 +66,7 @@ function generateHard(){
     const sqs=shuffle([...Array(25).keys()]);
     const eKeys=sqs.slice(0,6);
     // At least 3 sliding pieces among enemies
-    const sliding=shuffle(['Q','Q','R','R','B','B']).slice(0,3);
+    const sliding=shuffle(['R','R','R','B','B','B']).slice(0,3); // No enemy queens
     const fixed=shuffle(['N','N','P','P']).slice(0,3);
     const eTypes=shuffle([...sliding,...fixed]);
     const enemies=eKeys.map((k,i)=>({t:eTypes[i],k}));
