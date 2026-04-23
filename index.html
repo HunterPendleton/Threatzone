@@ -554,6 +554,7 @@ function onClick(k){
     delete myBoard[k];
     selectedType=null;
     renderBoard();renderSel();autoFB();
+    persistProgress();
     document.getElementById('btn-hint').removeAttribute('data-level');
     return;
   }
@@ -568,7 +569,8 @@ function onClick(k){
   if(typeof placements!=='undefined'){placements++;updateParDisplay();}
   selectedType=null;
   renderBoard();renderSel();autoFB();
-  // Placement shake animation
+  persistProgress();
+  // Placement animation
   const _boardEl=document.getElementById('board');
   if(_boardEl){
     const _sqs=_boardEl.querySelectorAll('.sq');
@@ -583,8 +585,7 @@ function onClick(k){
     const{eT:_eT,mT:_mT}=computeThreats();
     const _covered=puzzle.enemies.filter(e=>_mT.has(e.k)).length;
     const _threatened=Object.keys(myBoard).map(Number).some(k=>_eT.has(k));
-    const _solved=_covered===puzzle.enemies.length&&!_threatened;
-    if(!_solved){
+    if(!(_covered===puzzle.enemies.length&&!_threatened)){
       setTimeout(()=>{
         document.getElementById('board')?.querySelectorAll('.sq').forEach(sq=>{
           const _mp=sq.querySelector('.my-piece');
@@ -753,6 +754,7 @@ function persistWins(){
 function saveWin(idx,board,time,hints){
   winsStore[idx]={board:{...board},time,hints};
   persistWins();
+  clearProgress();
   renderDrawer();
 }
 
@@ -1370,12 +1372,17 @@ function loadTierPuzzle(tier,idx){
     renderBoard();renderSel();
     showDailyScoreCard();
   }else{
-    renderBoard();renderSel();
-    const fb3=g('feedback');if(fb3)fb3.style.display='';
-    const tdh=g('timer-display');if(tdh)tdh.style.visibility='hidden';
-    setFB('idle','Select a piece above, then click a square.');
-    restoreTimer();
-    startTimer();
+    if(restoreProgress()){
+      renderBoard();renderSel();
+      restoreTimer();startTimer();
+    } else {
+      renderBoard();renderSel();
+      const fb3=g('feedback');if(fb3)fb3.style.display='';
+      const tdh=g('timer-display');if(tdh)tdh.style.visibility='hidden';
+      setFB('idle','Select a piece above, then click a square.');
+      restoreTimer();
+      startTimer();
+    }
   }
   updateTierButtons();
 }
@@ -1544,6 +1551,33 @@ if(_doEl)_doEl.addEventListener('click',closeDrawer);
 
 // ── Timer persistence ────────────────────────────────────────────────────────
 function timerKey(){return 'tz_timer_'+currentTier+'_'+currentPuzzleIndex;}
+
+function progressKey(){return 'tz_progress_'+currentTier+'_'+currentPuzzleIndex;}
+
+function persistProgress(){
+  try{
+    localStorage.setItem(progressKey(),JSON.stringify({board:myBoard,placements:placements,hints:hintsThisSession,hintLevel:hintLevel}));
+  }catch{}
+}
+
+function clearProgress(){
+  try{localStorage.removeItem(progressKey());}catch{}
+}
+
+function restoreProgress(){
+  try{
+    const raw=localStorage.getItem(progressKey());
+    if(!raw)return false;
+    const s=JSON.parse(raw);
+    myBoard=s.board||{};
+    placements=s.placements||0;updateParDisplay();
+    hintsThisSession=s.hints||0;
+    hintLevel=s.hintLevel||0;
+    const bh=g('btn-hint');
+    if(bh){bh.dataset.level=hintLevel;if(hintLevel>=3)bh.disabled=true;}
+    return true;
+  }catch{return false;}
+}
 
 function persistRunningTimer(){
   try{ localStorage.setItem(timerKey(), timerSeconds); }catch{}
