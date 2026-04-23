@@ -254,6 +254,31 @@ body.dark-mode #legend{color:#a0b0c0;}
   body:not(.light-mode) #legend{color:#a0b0c0;}
 }
 
+
+/* ── Piece animations ─────────────────────────────────────────── */
+@keyframes piece-place{
+  0%{transform:scale(1);}
+  25%{transform:scale(1.18) rotate(-4deg);}
+  50%{transform:scale(1.12) rotate(3deg);}
+  75%{transform:scale(1.06) rotate(-2deg);}
+  100%{transform:scale(1) rotate(0deg);}
+}
+@keyframes piece-shake{
+  0%,100%{transform:translateX(0);}
+  15%{transform:translateX(-5px);}
+  30%{transform:translateX(5px);}
+  45%{transform:translateX(-4px);}
+  60%{transform:translateX(4px);}
+  75%{transform:translateX(-2px);}
+  90%{transform:translateX(2px);}
+}
+@keyframes piece-pulse{
+  0%,100%{transform:scale(1);opacity:1;}
+  50%{transform:scale(1.1);opacity:0.85;}
+}
+.piece-place-anim{animation:piece-place 0.25s ease-out;}
+.piece-shake-anim{animation:piece-shake 0.45s ease-in-out;}
+.sq.threatened-mine .piece{animation:piece-pulse 1.4s ease-in-out infinite;}
 </style>
 </head>
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -543,6 +568,31 @@ function onClick(k){
   if(typeof placements!=='undefined'){placements++;updateParDisplay();}
   selectedType=null;
   renderBoard();renderSel();autoFB();
+  // Placement shake animation
+  const _boardEl=document.getElementById('board');
+  if(_boardEl){
+    const _sqs=_boardEl.querySelectorAll('.sq');
+    if(_sqs[k]){
+      const _p=_sqs[k].querySelector('.piece');
+      if(_p){_p.classList.remove('piece-place-anim');void _p.offsetWidth;_p.classList.add('piece-place-anim');_p.addEventListener('animationend',()=>_p.classList.remove('piece-place-anim'),{once:true});}
+    }
+  }
+  // All-shake if all pieces placed and not solved
+  const _placed=Object.keys(myBoard).length;
+  if(_placed===puzzle.myTypes.length){
+    const{eT:_eT,mT:_mT}=computeThreats();
+    const _covered=puzzle.enemies.filter(e=>_mT.has(e.k)).length;
+    const _threatened=Object.keys(myBoard).map(Number).some(k=>_eT.has(k));
+    const _solved=_covered===puzzle.enemies.length&&!_threatened;
+    if(!_solved){
+      setTimeout(()=>{
+        document.getElementById('board')?.querySelectorAll('.sq').forEach(sq=>{
+          const _mp=sq.querySelector('.my-piece');
+          if(_mp){_mp.classList.remove('piece-shake-anim');void _mp.offsetWidth;_mp.classList.add('piece-shake-anim');_mp.addEventListener('animationend',()=>_mp.classList.remove('piece-shake-anim'),{once:true});}
+        });
+      },100);
+    }
+  }
 }
 
 function setFB(type,msg){
