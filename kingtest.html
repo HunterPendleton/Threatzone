@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>King Mode — No Queens</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Trebuchet MS',sans-serif;background:linear-gradient(135deg,#1a4a1a,#4a1a1a);min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:16px;color:#f5e6c8;}
+h1{font-size:20px;color:#c0392b;margin-bottom:4px;text-align:center;}
+.subtitle{font-size:12px;color:#aaa;margin-bottom:8px;text-align:center;line-height:1.6;}
+.nav{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+.nav button{background:#c0392b;border:none;color:#fff;font-family:'Trebuchet MS',sans-serif;font-weight:700;font-size:14px;padding:8px 16px;border-radius:8px;cursor:pointer;}
+.nav button:disabled{background:#444;color:#888;cursor:default;}
+.puzzle-num{font-size:16px;font-weight:700;color:#f5e6c8;min-width:80px;text-align:center;}
+:root{--sq:min(calc((100vw - 32px)/5), 70px);}
+#board{display:grid;grid-template-columns:repeat(5,var(--sq));grid-template-rows:repeat(5,var(--sq));border:3px solid #c0392b;border-radius:6px;overflow:hidden;}
+.sq{width:var(--sq);height:var(--sq);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.sq.light{background:#8b5e3c;}
+.sq.dark{background:#4a2f1a;}
+.sq.king-zone{background:rgba(200,150,0,0.3)!important;}
+.sq.threatened-enemy{background:#cc4444!important;}
+.sq.safe-mine{background:#2d7a3a!important;}
+.sq.threatened-mine{background:#aa2222!important;}
+.sq.guarded-mine{background:#1a5a8a!important;}
+.piece{font-size:calc(var(--sq)*0.55);line-height:1;user-select:none;pointer-events:none;}
+.piece.enemy-piece{color:#f0e6d0;text-shadow:0 1px 2px rgba(0,0,0,0.8);}
+.piece.my-piece{color:#c0392b;text-shadow:0 1px 3px rgba(0,0,0,0.9),0 0 6px rgba(255,80,80,0.4);}
+#piece-select{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+.sel-piece{width:52px;height:52px;border-radius:10px;border:2px solid #555;background:#1a2d40;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:28px;color:#c0392b;}
+.sel-piece.active{border-color:#c0392b;background:#2a1a1a;}
+.sel-piece.empty{opacity:0.3;cursor:default;}
+#feedback{margin-top:8px;font-size:13px;color:#a0b0c0;text-align:center;min-height:20px;padding:0 8px;}
+#status{margin-top:6px;font-size:14px;text-align:center;font-weight:700;}
+.solved{color:#4caf50;}
+.info{display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:#aaa;justify-content:center;flex-wrap:wrap;}
+.info span b{color:#f5e6c8;}
+.legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:8px;font-size:11px;color:#aaa;}
+.legend span{display:flex;align-items:center;gap:3px;}
+.dot{width:11px;height:11px;border-radius:2px;display:inline-block;flex-shrink:0;}
+#show-sol{background:#444;border:none;color:#ccc;font-family:'Trebuchet MS',sans-serif;font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;margin-top:8px;}
+#show-sol:hover{background:#666;}
+</style>
+</head>
+<body>
+<h1>♚ King Mode — No Queens</h1>
+<p class="subtitle">
+  <span style="color:#f0e6d0;">Cream = enemies</span> &nbsp;·&nbsp; <span style="color:#c0392b;">Red = your pieces</span><br>
+  One piece must sit adjacent to the King, guarded by an ally.
+</p>
+<div class="nav">
+  <button id="prev" onclick="changePuzzle(-1)">← Prev</button>
+  <span class="puzzle-num" id="pnum">1 / 10</span>
+  <button id="next" onclick="changePuzzle(1)">Next →</button>
+</div>
+<div class="info">
+  <span>Enemies: <b id="etypes"></b></span>
+  <span>Your pieces: <b id="mtypes"></b></span>
+</div>
+<div class="legend">
+  <span><span class="dot" style="background:rgba(200,150,0,0.5)"></span>King zone</span>
+  <span><span class="dot" style="background:#cc4444"></span>Enemy threatened</span>
+  <span><span class="dot" style="background:#2d7a3a"></span>Safe</span>
+  <span><span class="dot" style="background:#1a5a8a"></span>Guarded</span>
+  <span><span class="dot" style="background:#aa2222"></span>In danger</span>
+</div>
+<div id="board"></div>
+<div id="piece-select"></div>
+<div id="feedback">Select a piece, then place it.</div>
+<div id="status"></div>
+<button id="show-sol" onclick="showSolution()">Show Solution</button>
+
+<script>
+const PUZZLES=[{"enemies": [{"t": "K", "k": 7}, {"t": "P", "k": 6}, {"t": "B", "k": 10}, {"t": "B", "k": 22}, {"t": "R", "k": 24}], "myTypes": ["B", "N", "R"], "tier": "king"}, {"enemies": [{"t": "K", "k": 7}, {"t": "N", "k": 21}, {"t": "P", "k": 8}, {"t": "B", "k": 24}, {"t": "R", "k": 17}], "myTypes": ["R", "P", "N"], "tier": "king"}, {"enemies": [{"t": "K", "k": 18}, {"t": "N", "k": 13}, {"t": "R", "k": 10}, {"t": "B", "k": 12}, {"t": "P", "k": 6}], "myTypes": ["P", "R", "N"], "tier": "king"}, {"enemies": [{"t": "K", "k": 17}, {"t": "N", "k": 3}, {"t": "N", "k": 18}, {"t": "P", "k": 2}, {"t": "B", "k": 12}], "myTypes": ["N", "R", "B"], "tier": "king"}, {"enemies": [{"t": "K", "k": 16}, {"t": "B", "k": 0}, {"t": "P", "k": 13}, {"t": "N", "k": 15}, {"t": "P", "k": 10}], "myTypes": ["N", "R", "P"], "tier": "king"}, {"enemies": [{"t": "K", "k": 22}, {"t": "N", "k": 19}, {"t": "P", "k": 7}, {"t": "R", "k": 2}, {"t": "P", "k": 1}], "myTypes": ["R", "N", "P"], "tier": "king"}, {"enemies": [{"t": "K", "k": 8}, {"t": "N", "k": 0}, {"t": "N", "k": 17}, {"t": "P", "k": 14}, {"t": "P", "k": 15}], "myTypes": ["N", "R", "B"], "tier": "king"}, {"enemies": [{"t": "K", "k": 21}, {"t": "N", "k": 4}, {"t": "P", "k": 0}, {"t": "R", "k": 19}, {"t": "N", "k": 17}], "myTypes": ["B", "P", "R"], "tier": "king"}, {"enemies": [{"t": "K", "k": 9}, {"t": "R", "k": 20}, {"t": "N", "k": 6}, {"t": "R", "k": 1}, {"t": "B", "k": 17}], "myTypes": ["R", "B", "N"], "tier": "king"}, {"enemies": [{"t": "K", "k": 11}, {"t": "N", "k": 18}, {"t": "R", "k": 5}, {"t": "P", "k": 1}, {"t": "B", "k": 22}], "myTypes": ["R", "B", "N"], "tier": "king"}];
+const PC={Q:'♛',R:'♜',B:'♝',N:'♞',P:'♟',K:'♚'};
+
+let idx=0,puzzle=null,myBoard={},selectedType=null;
+
+function nk(r,c){return r*5+c;}
+function fk(k){return[Math.floor(k/5),k%5];}
+function inB(r,c){return r>=0&&r<5&&c>=0&&c<5;}
+
+function getAttacks(type,r,c,occ,pd){
+  const out=new Set();
+  if(type==='N'){for(const[dr,dc]of[[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[1,-2],[-1,2],[-1,-2]])if(inB(r+dr,c+dc))out.add(nk(r+dr,c+dc));}
+  else if(type==='P'){for(const[dr,dc]of[[pd,-1],[pd,1]])if(inB(r+dr,c+dc))out.add(nk(r+dr,c+dc));}
+  else if(type==='K'){for(const[dr,dc]of[[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]])if(inB(r+dr,c+dc))out.add(nk(r+dr,c+dc));}
+  else{const dirs=[];if(type==='R'||type==='Q')dirs.push([0,1],[0,-1],[1,0],[-1,0]);if(type==='B'||type==='Q')dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);for(const[dr,dc]of dirs){let nr=r+dr,nc=c+dc;while(inB(nr,nc)){out.add(nk(nr,nc));if(occ.has(nk(nr,nc)))break;nr+=dr;nc+=dc;}}}
+  return out;
+}
+
+function computeAll(){
+  const occ=new Set([...puzzle.enemies.map(e=>e.k),...Object.keys(myBoard).map(Number)]);
+  const kingThreats=new Set();const eT=new Set();
+  for(const e of puzzle.enemies){
+    const[r,c]=fk(e.k);
+    if(e.t==='K'){for(const s of getAttacks('K',r,c,occ,1))kingThreats.add(s);}
+    else{for(const s of getAttacks(e.t,r,c,occ,1))eT.add(s);}
+  }
+  const mineArr=Object.entries(myBoard).map(([k,t])=>({t,k:Number(k)}));
+  const mineAtks=mineArr.map(m=>{const[r,c]=fk(m.k);return getAttacks(m.t,r,c,occ,-1);});
+  const mT=new Set();for(const a of mineAtks)for(const s of a)mT.add(s);
+  const guarded=new Set();
+  mineArr.forEach((m,i)=>{if(kingThreats.has(m.k)&&mineArr.some((_,j)=>j!==i&&mineAtks[j].has(m.k)))guarded.add(m.k);});
+  return{eT,kingThreats,mT,guarded};
+}
+
+function isValidKing(enemies,mine){
+  const occ=new Set([...enemies.map(e=>e.k),...mine.map(m=>m.k)]);
+  const king=enemies.find(e=>e.t==='K');
+  const kingThreats=new Set();const eT=new Set();
+  for(const e of enemies){const[r,c]=fk(e.k);if(e.t==='K'){for(const s of getAttacks('K',r,c,occ,1))kingThreats.add(s);}else{for(const s of getAttacks(e.t,r,c,occ,1))eT.add(s);}}
+  const eKeys=new Set(enemies.map(e=>e.k));
+  const mineAtks=mine.map(m=>{const[r,c]=fk(m.k);return getAttacks(m.t,r,c,occ,-1);});
+  const coverage=mine.map((m,i)=>{const cov=new Set();for(const k of mineAtks[i])if(eKeys.has(k))cov.add(k);return cov;});
+  for(const m of mine){if(eT.has(m.k))return false;}
+  for(let i=0;i<mine.length;i++){if(kingThreats.has(mine[i].k)&&!mine.some((_,j)=>j!==i&&mineAtks[j].has(mine[i].k)))return false;}
+  if(king&&!mine.some(m=>kingThreats.has(m.k)))return false;
+  for(const e of enemies)if(!coverage.some(c=>c.has(e.k)))return false;
+  for(let i=0;i<mine.length;i++){const others=new Set();for(let j=0;j<mine.length;j++)if(j!==i)for(const k of coverage[j])others.add(k);if(![...coverage[i]].some(k=>!others.has(k)))return false;}
+  return true;
+}
+
+function remCounts(){
+  const placed={};for(const t of Object.values(myBoard))placed[t]=(placed[t]||0)+1;
+  const rem={};for(const t of puzzle.myTypes)rem[t]=(rem[t]||0)+1;
+  for(const[t,n]of Object.entries(placed))rem[t]=(rem[t]||0)-n;
+  return rem;
+}
+
+function renderBoard(){
+  const el=document.getElementById('board');el.innerHTML='';
+  const{eT,kingThreats,mT,guarded}=computeAll();
+  for(let r=0;r<5;r++)for(let c=0;c<5;c++){
+    const sq=document.createElement('div');
+    const k=nk(r,c);
+    sq.className='sq '+((r+c)%2===0?'light':'dark');
+    const enemy=puzzle.enemies.find(e=>e.k===k);
+    const myT=myBoard[k];
+    if(!enemy&&myT==null&&kingThreats.has(k))sq.classList.add('king-zone');
+    if(enemy&&mT.has(k))sq.classList.add('threatened-enemy');
+    if(myT!=null){
+      if(guarded.has(k))sq.classList.add('guarded-mine');
+      else if(eT.has(k))sq.classList.add('threatened-mine');
+      else sq.classList.add('safe-mine');
+    }
+    if(enemy||myT!=null){
+      const sp=document.createElement('span');
+      sp.className='piece '+(enemy?'enemy-piece':'my-piece');
+      sp.textContent=PC[enemy?enemy.t:myT];
+      sq.appendChild(sp);
+    }
+    sq.addEventListener('click',()=>onClick(k));
+    el.appendChild(sq);
+  }
+}
+
+function onClick(k){
+  if(puzzle.enemies.find(e=>e.k===k))return;
+  if(myBoard[k]!=null){delete myBoard[k];selectedType=null;renderBoard();renderSel();updateFeedback();return;}
+  if(!selectedType)return;
+  const rem=remCounts();
+  if((rem[selectedType]||0)<=0){document.getElementById('feedback').textContent='No '+PC[selectedType]+' left.';return;}
+  myBoard[k]=selectedType;selectedType=null;
+  renderBoard();renderSel();
+  const mine=Object.entries(myBoard).map(([k,t])=>({t,k:Number(k)}));
+  if(mine.length===puzzle.myTypes.length&&isValidKing(puzzle.enemies,mine)){
+    document.getElementById('status').className='solved';
+    document.getElementById('status').textContent='✓ Solved!';
+    document.getElementById('feedback').textContent='';
+  } else {updateFeedback();}
+}
+
+function updateFeedback(){
+  const occ=new Set([...puzzle.enemies.map(e=>e.k),...Object.keys(myBoard).map(Number)]);
+  const mT=new Set();
+  for(const[k,t]of Object.entries(myBoard)){const[r,c]=fk(Number(k));for(const s of getAttacks(t,r,c,occ,-1))mT.add(s);}
+  const covered=puzzle.enemies.filter(e=>mT.has(e.k)).length;
+  const rem=puzzle.myTypes.length-Object.keys(myBoard).length;
+  document.getElementById('feedback').textContent=covered+'/'+puzzle.enemies.length+' enemies threatened. '+rem+' piece(s) left.';
+  document.getElementById('status').textContent='';
+}
+
+function renderSel(){
+  const el=document.getElementById('piece-select');el.innerHTML='';
+  const rem=remCounts();const seen={};
+  for(const t of puzzle.myTypes){
+    if(seen[t])continue;seen[t]=true;
+    const total=puzzle.myTypes.filter(x=>x===t).length;
+    for(let i=0;i<total;i++){
+      const avail=(rem[t]||0)>i;
+      const btn=document.createElement('div');
+      btn.className='sel-piece'+(selectedType===t&&avail?' active':'')+(avail?'':' empty');
+      btn.textContent=PC[t];
+      if(avail)btn.addEventListener('click',()=>{selectedType=t;renderSel();});
+      el.appendChild(btn);
+    }
+  }
+}
+
+function loadPuzzle(i){
+  puzzle=PUZZLES[i];myBoard={};selectedType=null;
+  document.getElementById('pnum').textContent=(i+1)+' / '+PUZZLES.length;
+  document.getElementById('prev').disabled=i===0;
+  document.getElementById('next').disabled=i===PUZZLES.length-1;
+  document.getElementById('etypes').textContent=puzzle.enemies.map(e=>PC[e.t]).join(' ');
+  document.getElementById('mtypes').textContent=puzzle.myTypes.map(t=>PC[t]).join(' ');
+  document.getElementById('status').textContent='';
+  document.getElementById('feedback').textContent='Select a piece, then place it.';
+  renderBoard();renderSel();
+}
+
+function changePuzzle(dir){idx=Math.max(0,Math.min(PUZZLES.length-1,idx+dir));loadPuzzle(idx);}
+
+function showSolution(){
+  const eKeys=new Set(puzzle.enemies.map(e=>e.k));
+  const empties=[];for(let i=0;i<25;i++)if(!eKeys.has(i))empties.push(i);
+  const sorted=[...puzzle.myTypes].sort((a,b)=>['Q','R','B','N','P'].indexOf(a)-['Q','R','B','N','P'].indexOf(b));
+  let sol=null;
+  function bt(i,placed,used){if(sol)return;if(i===sorted.length){if(isValidKing(puzzle.enemies,placed))sol=[...placed];return;}for(const sq of empties){if(used.has(sq))continue;used.add(sq);placed.push({t:sorted[i],k:sq});bt(i+1,placed,used);placed.pop();used.delete(sq);if(sol)return;}}
+  bt(0,[],new Set());
+  if(sol){myBoard={};for(const m of sol)myBoard[m.k]=m.t;document.getElementById('status').textContent='Solution shown';renderBoard();renderSel();}
+}
+
+loadPuzzle(0);
+</script>
+</body>
+</html>
