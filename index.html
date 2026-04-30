@@ -171,6 +171,8 @@ h1{font-family:'Trebuchet MS',sans-serif;font-size:clamp(20px,5.5vw,28px);color:
 #board-blur-overlay{display:none;position:absolute;inset:0;background:rgba(253,246,238,.88);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-radius:8px;z-index:10;align-items:center;justify-content:center;}
 #board-blur-overlay span{font-family:'Trebuchet MS',sans-serif;font-size:clamp(18px,5vw,26px);color:#c0392b;}
 #board-wrap.paused #board-blur-overlay{display:flex;}
+#score-share-btn{margin-top:12px;background:#c0392b;color:#fff;border:none;font-family:'Trebuchet MS',sans-serif;font-weight:700;font-size:15px;padding:11px 28px;border-radius:10px;cursor:pointer;letter-spacing:0.3px;box-shadow:0 2px 8px rgba(192,57,43,0.4);transition:transform 0.1s,box-shadow 0.1s;}
+#score-share-btn:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(192,57,43,0.5);}
 #score-overlay{display:none;position:absolute;inset:0;background:rgba(253,246,238,.96);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);border-radius:8px;z-index:11;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px;}
 #score-overlay.visible{display:flex;animation:pop .4s ease;}
 #score-close{position:absolute;top:8px;right:10px;background:none;border:none;font-size:18px;cursor:pointer;color:#aaa;padding:0;line-height:1;box-shadow:none;}
@@ -333,6 +335,7 @@ body.dark-mode #legend{color:#a0b0c0;}
       <div id="score-stars"></div>
       <div id="score-time"></div>
       <div id="score-detail"></div>
+      <button id="score-share-btn" onclick="scoreShare()">&#128279; Share Result</button>
     </div>
   </div>
   <div class="spacer"></div>
@@ -388,7 +391,7 @@ body.dark-mode #legend{color:#a0b0c0;}
       <a href="mailto:threatzone.app@gmail.com">threatzone.app@gmail.com</a>
     </div>
         <div class="menu-row">
-      <span style="font-size:11px;color:#aaa;font-weight:600;">Build: 1.002</span>
+      <span style="font-size:11px;color:#aaa;font-weight:600;">Build: 1.003</span>
     </div>
   </div>
 </div>
@@ -1473,6 +1476,30 @@ function showDailyScoreCard(){
     const st=g('score-time');if(st)st.textContent=g('timer-display')?g('timer-display').textContent:'';
   }
   const fb=g('feedback');if(fb)fb.style.display='none';
+}
+
+// Score overlay share
+function scoreShare(){
+  const winKey=currentTier+'-'+currentPuzzleIndex;
+  const w=winsStore[winKey];
+  if(!w)return;
+  const par=currentTier==='hard'?5:currentTier==='medium'?5:4;
+  const stars=getStars(w.placements,par);
+  const tierLabel=currentTier.charAt(0).toUpperCase()+currentTier.slice(1);
+  const puzzleNum=currentPuzzleIndex+1;
+  const hints=w.hints||0;
+  const timeStr=formatTime(w.time);
+  const filled='🌟';const empty='☆';
+  const expertMode=localStorage.getItem('tz_expert')==='true';
+  let starLine=expertMode?filled.repeat(stars)+empty.repeat(5-stars):filled.repeat(stars)+empty.repeat(5-stars);
+  const text=`♟️${tierLabel} #${puzzleNum} – ${hints} Hint${hints!==1?'s':''}♟️
+♟️⌛${timeStr} – ${starLine}♟️
+♟️www.threatzone.app♟️`;
+  if(navigator.share){navigator.share({text});}
+  else{navigator.clipboard.writeText(text).then(()=>{
+    const btn=g('score-share-btn');
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Copied!';setTimeout(()=>{btn.innerHTML='&#128279; Share Result';},2000);}
+  });}
 }
 
 // Override share
